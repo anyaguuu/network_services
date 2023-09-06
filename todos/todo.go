@@ -2,8 +2,8 @@ package todos
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
-	"json"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -166,4 +166,52 @@ func (t toDoList) createToDo(w http.ResponseWriter, r *http.Request) {
 	t.list[todo.id] = todo // assigns
 
 	w.WriteHeader(http.StatusCreated)
+}
+
+func (t toDoList) createReplaceToDo(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	// Parse request
+	path := strings.Split(r.URL.Path, "/")
+	if len(path) != 3 {
+		slog.Error("createReplaceToDo: invalid path", "path", path)
+		http.Error(w, `"invalid ToDo ID"`, http.StatusBadRequest)
+		return
+	}
+
+	desc, err := io.ReadAll(r.Body) // this is how you read the request body
+	defer r.Body.Close()            // don't forget this!
+	if err != nil {
+		slog.Error("createReplaceToDo: error reading ToDo request", "error", err)
+		http.Error(w, `"invalid ToDo format"`, http.StatusBadRequest)
+		return
+	}
+
+	// convert request to a todo
+	var givenToDo toDo
+	err = json.Unmarshal(desc, &givenToDo)
+	if err != nil {
+		slog.Error("createReplaceToDo: error unmarshaling ToDo request", "error", err)
+		http.Error(w, `"invalid ToDo format"`, http.StatusBadRequest)
+		return
+	}
+
+	// Checks if the ID given in body matches ID of the resource
+	if fmt.Sprintf("%d", givenToDo.id) != path[2] {
+		slog.Error("createReplaceToDo: IDs do not match", "pathID", path[2], "toDoID", givenToDo.Id)
+		http.Error(w, `"ID in the ToDo does not match the ID in the URL"`, http.StatusBadRequest)
+		return
+	}
+
+	// Associaes ID to the ToDo and provides corresponding client response
+	_, exists := t.list[givenToDo.id]
+	t.list[givenToDo.id] = givenToDo
+	if exists {
+		slog.Info("createReplaceToDo: replacing ToDo", "id", givenToDo.id)
+		w.WriteHeader(http.StatusNoContent)
+	} else { // didn't already exist, so had to create new one
+		slog.Info("createReplaceToDo: creating ToDo", "id", givenToDo.id)
+		w.WriteHeader(http.StatusCreated)
+	}
 }

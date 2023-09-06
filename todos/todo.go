@@ -36,3 +36,16 @@ func (t toDoList) handleAllToDos(w http.ResponseWriter, r http.Request) {
 		t.createToDo(w, r)
 	}
 }
+
+// handles requests to access /todos/# resources
+// GET, PUT, DELETE
+func (t ToDoList) HandleSpecificTodo(w http.ResponseWriter, r http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		t.retrieveTodo(w, r)
+	case http.MethodPut:
+		t.createReplaceToDo(w, r)
+	case http.MethodDelete:
+		t.deleteToDo(w, r)
+	}
+}

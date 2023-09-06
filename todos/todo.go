@@ -199,7 +199,7 @@ func (t toDoList) createReplaceToDo(w http.ResponseWriter, r *http.Request) {
 
 	// Checks if the ID given in body matches ID of the resource
 	if fmt.Sprintf("%d", givenToDo.id) != path[2] {
-		slog.Error("createReplaceToDo: IDs do not match", "pathID", path[2], "toDoID", givenToDo.Id)
+		slog.Error("createReplaceToDo: IDs do not match", "pathID", path[2], "toDoID", givenToDo.id)
 		http.Error(w, `"ID in the ToDo does not match the ID in the URL"`, http.StatusBadRequest)
 		return
 	}
@@ -213,5 +213,39 @@ func (t toDoList) createReplaceToDo(w http.ResponseWriter, r *http.Request) {
 	} else { // didn't already exist, so had to create new one
 		slog.Info("createReplaceToDo: creating ToDo", "id", givenToDo.id)
 		w.WriteHeader(http.StatusCreated)
+	}
+}
+
+// deletes ToDO given unique id
+// if no todo w that id exists, will return 404 not found
+// if yes, then will delete and return 204 no content
+func (t toDoList) deleteToDo(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	// parse request
+	path := strings.Split(r.URL.Path, "/")
+	if len(path) != 3 {
+		slog.Error("deleteToDo: invalid path", "path", path)
+		http.Error(w, `"invalid ToDo ID"`, http.StatusBadRequest)
+		return
+	}
+
+	id, err := strconv.Atoi(path[2]) // number of resource
+	if err != nil {
+		slog.Error("deleteToDo: invalid id", "id", id, "error", err)
+		http.Error(w, `"invalid ToDo ID"`, http.StatusBadRequest)
+		return
+	}
+
+	// checks if it exists and sends to client
+	_, exists := t.list[id]
+	if exists {
+		delete(t.list, id)
+		slog.Info("deleteToDo: deleting", "id", id)
+		w.WriteHeader(http.StatusNoContent)
+	} else {
+		slog.Info("deleteToDo: not found", "id", id)
+		w.WriteHeader(http.StatusNotFound)
 	}
 }

@@ -1,9 +1,12 @@
 package todos
 
 import (
+	"encoding/json"
 	"json"
 	"log/slog"
 	"net/http"
+	"strconv"
+	"strings"
 )
 
 type toDo struct {
@@ -76,4 +79,49 @@ func (t toDoList) retrieveAllToDos(w http.ResponseWriter, r http.Request) { // a
 
 	slog.Info("retrieveAllToDos: success")
 	w.Write(jsonToDo)
+}
+
+// retrieves a single ToDo if it exists and sends back to client in the form
+// of json obj
+// if not found, return 404 Not Found
+func (t toDoList) retrieveToDo(w http.ResponseWriter, r http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	// parse the request
+	path := strings.Split(r.URL.Path, "/") // should be HOST, Method, URL path i think. so last element (2) is # id
+	if len(path) != 3 || path[2] == "" {
+		slog.Error("retrieve ToDo: invalid path", "path", path)
+		http.Error(w, `"invalid path"`, http.StatusBadRequest)
+		return
+	}
+
+	// idolate the single id to retrieve
+	id, err := strconv.Atoi(path[2])
+	if err != nil {
+		slog.Error("retrieveToDo: error reading id", "id", path[2], "error", err)
+		http.Error(w, `"invalid ToDo id"`, http.StatusBadRequest)
+		return
+	}
+
+	todo, exists := t.list[id] // get the item
+	if exists {
+		// send ToDo to the client
+		jsonToDo, err := json.Marshal(todo)
+		if err != nil {
+			// should never happen
+			slog.Error("retrieveToDo: error marshaling ToDo", "ToDo", todo)
+			http.Error(w, `"internal server error"`, http.StatusInternalServerError)
+			return
+		}
+		w.Write(jsonToDo)
+
+		slog.Info("retrieveToDo: found", "id", id)
+
+		return
+	}
+
+	// Id not found
+	slog.Info("retrieveToDo: not found", "id", id)
+	w.WriteHeader(http.StatusNotFound)
 }

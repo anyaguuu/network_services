@@ -1,6 +1,10 @@
 package todos
 
-import "net/http"
+import (
+	"json"
+	"log/slog"
+	"net/http"
+)
 
 type toDo struct {
 	id          int
@@ -48,4 +52,28 @@ func (t ToDoList) HandleSpecificTodo(w http.ResponseWriter, r http.Request) {
 	case http.MethodDelete:
 		t.deleteToDo(w, r)
 	}
+}
+
+// converts all existing ToDos into a JSON object
+// sends the JSON obj back to client
+func (t toDoList) retrieveAllToDos(w http.ResponseWriter, r http.Request) { // also on slide 22
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	toDos := make([]toDo, 0) // slice with 0 toDos
+	// add all todos in todo list to it
+	for _, todo := range t.list {
+		toDos = append(toDos, todo)
+	}
+
+	jsonToDo, err := json.Marshal(toDos)
+	if err != nil {
+		// should never happen
+		slog.Error("retrieveAllToDos: error marshaling ToDos", "ToDos", toDos, "error", err)
+		http.Error(w, `"internal server error"`, http.StatusInternalServerError)
+		return
+	}
+
+	slog.Info("retrieveAllToDos: success")
+	w.Write(jsonToDo)
 }

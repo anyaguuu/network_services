@@ -2,6 +2,7 @@ package todos
 
 import (
 	"encoding/json"
+	"io"
 	"json"
 	"log/slog"
 	"net/http"
@@ -35,7 +36,7 @@ func New() http.Handler { // so returns http handler
 // Handles requests to access /todos resources
 // # represents numeric id for a ToDo
 // supports GET and POST requests
-func (t toDoList) handleAllToDos(w http.ResponseWriter, r http.Request) {
+func (t toDoList) handleAllToDos(w http.ResponseWriter, r *http.Request) {
 	switch r.Method { // look for method
 	case http.MethodGet:
 		t.retrieveAllToDos(w, r)
@@ -46,7 +47,7 @@ func (t toDoList) handleAllToDos(w http.ResponseWriter, r http.Request) {
 
 // handles requests to access /todos/# resources
 // GET, PUT, DELETE
-func (t ToDoList) HandleSpecificTodo(w http.ResponseWriter, r http.Request) {
+func (t toDoList) HandleSpecificTodo(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
 		t.retrieveTodo(w, r)
@@ -59,7 +60,7 @@ func (t ToDoList) HandleSpecificTodo(w http.ResponseWriter, r http.Request) {
 
 // converts all existing ToDos into a JSON object
 // sends the JSON obj back to client
-func (t toDoList) retrieveAllToDos(w http.ResponseWriter, r http.Request) { // also on slide 22
+func (t toDoList) retrieveAllToDos(w http.ResponseWriter, r *http.Request) { // also on slide 22
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
@@ -84,7 +85,7 @@ func (t toDoList) retrieveAllToDos(w http.ResponseWriter, r http.Request) { // a
 // retrieves a single ToDo if it exists and sends back to client in the form
 // of json obj
 // if not found, return 404 Not Found
-func (t toDoList) retrieveToDo(w http.ResponseWriter, r http.Request) {
+func (t toDoList) retrieveToDo(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
@@ -124,4 +125,45 @@ func (t toDoList) retrieveToDo(w http.ResponseWriter, r http.Request) {
 	// Id not found
 	slog.Info("retrieveToDo: not found", "id", id)
 	w.WriteHeader(http.StatusNotFound)
+}
+
+// creates new ToDo with ID that doesn't conflict
+// server selects new unique ID and associates ToDo with that ID
+func (t toDoList) createToDo(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Orign", "*")
+
+	desc, err := io.ReadAll(r.Body)
+	defer r.Body.Close()
+
+	if err != nil {
+		slog.Error("createToDo: error reading ToDo description", "error", err)
+		http.Error(w, `"invalid ToDo format"`, http.StatusBadRequest)
+		return
+	}
+
+	// Convert request to a ToDo!
+	var todo toDo
+	err = json.Unmarshal(desc, &todo) // converts desc back from json and assigns to todo
+	if err != nil {
+		slog.Error("createToDo: error unmarshaling ToDo description", "error", err)
+		http.Error(w, `"invalid ToDo format"`, http.StatusBadRequest)
+		return
+	}
+
+	// select next avail ID for new todo
+	availID := 0
+	_, exists := t.list[availID]
+	for exists {
+		availID++
+		_, exists = t.list[availID]
+	}
+
+	slog.Info("createToDo", "id", availID, "ToDo", desc)
+
+	// associates task with uniquely selected ID
+	todo.id = availID
+	t.list[todo.id] = todo // assigns
+
+	w.WriteHeader(http.StatusCreated)
 }

@@ -23,3 +23,16 @@ func New() http.Handler { // so returns http handler
 
 	return mux
 }
+
+// method of the toDoList struct
+// Handles requests to access /todos resources
+// # represents numeric id for a ToDo
+// supports GET and POST requests
+func (t toDoList) handleAllToDos(w http.ResponseWriter, r http.Request) {
+	switch r.Method { // look for method
+	case http.MethodGet:
+		t.retrieveAllToDos(w, r)
+	case http.MethodPost:
+		t.createToDo(w, r)
+	}
+}

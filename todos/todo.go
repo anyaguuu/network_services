@@ -50,7 +50,7 @@ func (t toDoList) handleAllToDos(w http.ResponseWriter, r *http.Request) {
 func (t toDoList) HandleSpecificTodo(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		t.retrieveTodo(w, r)
+		t.retrieveToDo(w, r)
 	case http.MethodPut:
 		t.createReplaceToDo(w, r)
 	case http.MethodDelete:
